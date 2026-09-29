@@ -80,7 +80,7 @@ data.count <- data %>%
   For count data, the Poisson family has to be used. Alternatively, if the model is over-dispersed, negative-binomial can also be used.
   
 ```{r}
-mlm <- lme4::glmer(count ~ pas + task + pas*task + (pas | subject), data = data.count, family = poisson)
+mlm <- lme4::glmer(count ~ pas*task + (pas | subject), data = data.count, family = poisson)
 
 ```
   
