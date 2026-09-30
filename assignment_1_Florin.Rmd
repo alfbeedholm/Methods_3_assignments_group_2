@@ -71,7 +71,7 @@ data.count <- data %>%
   rename(count = n) %>%
   mutate(pas = factor(pas),
          task = factor(task),
-         subject = factor(subject))
+         subject = factor(subject)) # delete after merge
 ```
 
 2)  Now fit a multilevel model that models a unique "slope" for *pas* for each *subject*, $Z$, with the interaction between *pas* and *task* and their main effects being modelled on the first level, $X$
@@ -86,7 +86,7 @@ mlm <- lme4::glmer(count ~ pas*task + (pas | subject), data = data.count, family
   
   ii. why is a slope for *pas* not really being modelled, and what are we modelling instead?\
 
-  We are not really modeling a slope for *pas* because it is not a continuous predictor, but a categorical one (factor), so we are just modeling random effects for all *subjects* and *pas* levels.
+  We are not really modeling a slope for *pas* because it is not a continuous predictor, but a categorical one (factor), so we are just modeling random effects for each of the *subjects* and *pas* levels.
 
   iii. if you get a convergence error, try another algorithm (the default is the *Nelder_Mead*) - try (*bobyqa*) for which the `dfoptim` package is needed. In `glmer`, you can add the following for the `control` argument: `glmerControl(optimizer="bobyqa")` (if you are interested, also have a look at the function `allFit`)
   
