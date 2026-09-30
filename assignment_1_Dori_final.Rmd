@@ -1,0 +1,184 @@
+---
+title: "assignment_1, Methods 3, 2026"
+date: "2026-09-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE) 
+```
+
+```{r, include = FALSE}
+pacman::p_load(tidyverse, readbulk, patchwork, lmerTest)
+```
+
+REMEMBER: In your portfolio, make sure to include code that can reproduce the answers requested in the exercises below (**MAKE A KNITTED VERSION**). If it does not KNIT, it cannot be part of your portfolio
+
+# Exercises and objectives
+
+The objectives of the exercises of this assignment are:\
+A) Download and organise the data and model\
+B) Fit multilevel models for binomial data\
+C) Fit multilevel models for count data
+
+--------------------------------------------------- *Alf* ---------------------------------------------------
+
+## Exercise A - Download and organise the data and model
+
+Go to <https://osf.io/ecxsj/files/> and download the files associated with Experiment 2 (there should be 29).\
+The data is associated with Experiment 2 of the article at the following DOI <https://doi.org/10.1016/j.concog.2019.03.007>
+
+1)  Put the data from all subjects into a single data frame\
+
+```{r}
+data <- read_bulk(
+  directory = "experiment_2/",
+  fun = read_csv,
+  col_types = cols()
+  )
+```
+
+2)  Describe the data and construct extra variables from the existing variables
+
+<!-- -->
+
+i.  add a variable to the data frame and call it *correct* (have it be a *logical* variable). Assign a 1 to each row where the subject indicated the correct answer and a 0 to each row where the subject indicated the incorrect answer (**Hint:** the variable *obj.resp* indicates whether the subject answered "even", *e* or "odd", *o*, and the variable *target_type* indicates what was actually presented.
+
+```{r}
+data <- data |> 
+  mutate(correct = ifelse(target.type == "even" & obj.resp == "e" | target.type == "odd" & obj.resp == "o", TRUE, FALSE)) 
+```
+
+ii. describe what the following variables in the data frame contain, *trial.type*, *pas*, *trial*, *target.contrast*, *cue*, *task*, *target_type*, *rt.subj*, *rt.obj*, *obj.resp*, *subject* and *correct*. (That means you can ignore the rest of the variables in your description). For each of them, indicate and argue for what `class` they should be classified into, e.g. *factor*, *numeric* etc., and apply that class! (**Don't code variables as ordinal; if you think they are ordinal, just code them as a factor**)
+
+## Exercise B - Fit multilevel models for binomial data
+
+We **only** look at the *experiment* trials (*trial.type*)
+
+1)  Fit a multilevel model that models *correct* as dependent on *task* with a unique intercept for each *subject*
+    i.  does *task* explain performance?\
+
+--------------------------------------------------- *Iva* ---------------------------------------------------
+
+ii. add *pas* as a main effect on top of *task* - what are the consequences of that?\
+iii. now fit a multilevel model that models *correct* as dependent on *pas* with a unique intercept for each *subject*
+iv. finally, fit a model that models the interaction between *task* and *pas* and their main effects, still with a unique intercept for each *subject*\
+v.  describe in your own words which model is the best in explaining the variance in accuracy, and based on your chosen model - write a short summary on what this says about accuracy as dependent on *pas* and *task*. You should include at least one informative plot that shows the estimated probability of being correct for each of the levels of *task* and *pas* (and their interaction if you included that in your model).
+
+--------------------------------------------------- *Florin* ---------------------------------------------------
+
+## Exercise C - Fit multilevel models for count data
+
+We **only** look at the *experiment* trials (*trial.type*)
+
+1)  Initialise a new data frame, `data.count`. *count* should indicate the number of times they categorized their experience as *pas* 1-4 for each *task*. I.e. the data frame would have for subject 1: for task:singles, pas1 was used \# times, pas2 was used \# times, pas3 was used \# times and pas4 was used \# times. You would then do the same for task:pairs and task:quadruplet
+
+2)  Now fit a multilevel model that models a unique "slope" for *pas* for each *subject*, $Z$, with the interaction between *pas* and *task* and their main effects being modelled on the first level, $X$
+    i.  which family should be used?\
+    ii. why is a slope for *pas* not really being modelled, and what are we modelling instead?\
+    iii. if you get a convergence error, try another algorithm (the default is the *Nelder_Mead*) - try (*bobyqa*) for which the `dfoptim` package is needed. In `glmer`, you can add the following for the `control` argument: `glmerControl(optimizer="bobyqa")` (if you are interested, also have a look at the function `allFit`)
+
+--------------------------------------------------- *Dori* ---------------------------------------------------
+
+iv. when you have a converging fit - fit a model with only the main effects of *pas* and *task*. Compare this with the model that also includes the interaction
+```{r}
+# still Florin's code
+data.count <- data %>%
+  group_by(subject, task, pas) %>%
+  count() %>%
+  rename(count = n) %>%
+  mutate(pas = factor(pas),
+         task = factor(task),
+         subject = factor(subject))
+
+mlm <- lme4::glmer(count ~ pas + task + pas*task + (pas | subject), data = data.count, family = poisson)
+```
+
+
+```{r}
+# New model with main effects of task and pas
+m_wo_int <- lme4::glmer(count ~ pas + task + (pas | subject), data = data.count, family = poisson)
+
+```
+
+
+```{r}
+# New dataframe w/ predicted values for both models for 
+# visual inspection and further use 
+
+y_hat_1 <- data.frame(predict(mlm, type ="response"))
+y_hat_2 <- data.frame(predict(m_wo_int, type ="response"))
+data.pred <- cbind(data.count, y_hat_1, y_hat_2) 
+colnames(data.pred) <- c("subject", "task", 
+                         "pas", "count", "y_hat_1", "y_hat_2")
+```
+
+v.  indicate which of the two models, you would choose and why\
+
+My interpretation of the word "better" will be the following: Which model explains the most variance in the current sample, while also keeping in mind the possibility of overfitting; therefore, if a simpler model (one with fewer parameters) explains only marginally less variance than a better model, I will choose the simpler one.
+
+```{r}
+install.packages("MuMIn")
+library(MuMIn)
+
+print(r.squaredGLMM(mlm))
+print(r.squaredGLMM(m_wo_int))
+anova_int_noint = anova(mlm, m_wo_int)
+anova_int_noint
+```
+When comparing the two models, I used the $R^2$ value, and an ANOVA. 
+**$R^2$ results:** According to the MuMIn package documentation, 
+trigamma-estimate is recommended whenever possible, therefore I'll be 
+using that as the final $R^2$ value for both models.
+
+For the interaction model, the marginal $R^2$ value was 0.1575 
+(rounded to 4 sig. figures) and the conditional $R^2$ value was 0.9749. 
+Since the marginal $R^2$ value shows how much of the variance in the data 
+is explained by fixed effects, and the conditional $R^2$ value shows the 
+variance explained by the model as a whole, it seems like much of the variance 
+is being explained by the random effects; i.e.: the model mostly seems to be 
+fitting noise. 
+
+For the non-interaction model, a similar trend can be observed: the marginal 
+$R^2$ value was 0.1376, which is slightly higher than with the interaction 
+model. However, this model's conditional $R^2$ was also significantly larger 
+than its marginal $R^2$, with a value of 0.9745. Overall, the interaction model 
+seems to be slightly better so far.
+
+However, the interaction model has 22 parameters, while the non-interaction 
+model only has 16. Is it worth adding these 6 extra parameters just to 
+marginally increase the $R^2$ value? The AIC is what I take a look at next.
+
+**ANOVA results:** I compared the AIC values for both models. The interaction 
+model has a lower AIC score, at 3148.4, while the non-interaction model's score 
+is 3398.5. The interaction model is clearly better here, since the added 
+parameters seem to be compensated for by a much better fit according to the 
+much lower AIC score. I therefore choose the interaction model.
+
+
+
+vi. based on your chosen model - write a short summary on what this says about the distribution of ratings as dependent on *pas* and *task* and their interaction. You should include at least one informative plot that shows the estimated rate of events for each of the levels of *task* and *pas* (and their interaction if you included that in your model)
+
+
+```{r}
+library(ggplot2)
+
+ggplot(data.pred, aes(x = pas, y = y_hat_1, fill = data.pred$task)) +
+  geom_violin(alpha = 0.5) +   scale_fill_viridis_d(option = "plasma") +
+  facet_wrap(~ task) +
+  labs(x = "pas level", y = "count (y_hat)",
+       title = "Counts by condition of pas and task") +
+  theme_bw() + theme(legend.position="none")
+
+```
+The model shows that ratings are consistently higher for *pas* level 1, 2, 
+and 4, while *pas* level 3 shows a consistently lower estimated rate of events.
+
+The model also included an interaction between *pas* and *task*. 
+In the pairs and quadruplet tasks, ratings varied in a similar way across 
+*pas* levels. Overall, *pas* level 1 has the highest variance, with *pas* 
+level 3 having the least variance. This changes for the singles 
+level of *task*, where *pas* level 3 stils has the least variance, 
+but level 2 no longer has the most variance; level 4 does. 
+
+
