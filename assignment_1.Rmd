@@ -43,40 +43,116 @@ data <- read_bulk(
 i.  add a variable to the data frame and call it *correct* (have it be a *logical* variable). Assign a 1 to each row where the subject indicated the correct answer and a 0 to each row where the subject indicated the incorrect answer (**Hint:** the variable *obj.resp* indicates whether the subject answered "even", *e* or "odd", *o*, and the variable *target_type* indicates what was actually presented.
 
 **Answer:**
-We can do this using mutate() function from dplyr and the ifelse() function.
+We can do this using the mutate() function from dplyr and the ifelse() function.
 ```{r}
 data <- data |> 
-  mutate(correct = ifelse(target.type == "even" & obj.resp == "e" | target.type == "odd" & obj.resp == "o", 1, 0)) 
+  mutate(correct = ifelse(target.type == "even" & obj.resp == "e" | target.type == "odd" & obj.resp == "o", TRUE, FALSE)) 
 ```
 
 ii. describe what the following variables in the data frame contain, *trial.type*, *pas*, *trial*, *target.contrast*, *cue*, *task*, *target_type*, *rt.subj*, *rt.obj*, *obj.resp*, *subject* and *correct*. (That means you can ignore the rest of the variables in your description). For each of them, indicate and argue for what `class` they should be classified into, e.g. *factor*, *numeric* etc., and apply that class! (**Don't code variables as ordinal; if you think they are ordinal, just code them as a factor**)
 
 **Answer:**
 
-*trial.type*: Trial type is a nominal variables as it holds two different non-numeric options: staircase and experiment. They should therefore be classified as a factor in R.
+*trial.type*: Trial type is a nominal variables as it holds two different non-numeric options: staircase and experiment. They should therefore be classified as a factor in R as the variable is nominal.
 ```{r}
 data$trial.type <- factor(data$trial.type)
 cat("trial.type is now:", class(data$trial.type))
 ```
-*pas*: PAS is the subjective experience that the person rates. It is ordinal, even though it uses numbers, because it has ordering but without a real zero. 
+*pas*: PAS is the subjective experience that the person rates. It is ordinal, even though it uses numbers, because it has ordering but without a real zero. We still code it as a factor. 
 ```{r}
-data$trial.type <- factor(data$trial.type)
-print(class(data$trial.type))
+data$pas <- factor(data$pas)
+cat("pas is now:", class(data$pas))
+```
+*trial*: This number is the zero-indexed number. This variable can hold discrete information and holds a true zero and should therefore be a ratio, represented as `numeric` in R. 
+```{r}
+data$trial <- as.numeric(data$trial)
+cat("trial is now:", class(data$trial))
+```
+*target.contrast*: This is the grey-scale proportion of the target digit. This value represents the difference between background and target meaning that a higher value is a bigger different between target and background, making the target easier to see. That means that the variable is a ratio, being represented as `numeric` in R.
+```{r}
+data$target.contrast <- as.numeric(data$target.contrast)
+cat("target.contrast is now:", class(data$target.contrast))
+```
+*cue*: This is the number for the cue, meaning that it is not continuous, and meaning that it is a nominal variable.  
+```{r}
+data$cue <- factor(data$cue)
+cat("cue is now:", class(data$cue))
 ```
 
-
+*task*: Describes how many number could be shown as a target, being either quadruplet, pairs or singles. This holds an inherent ordering, making it ordinal. We still code it as a factor, though.
 ```{r}
-sapply(data, class)
+data$task <- factor(data$task)
+cat("task is now:", class(data$task))
+```
+*target.type*: Describes whether the target was even or odd. This is a nominal variable, because it holds no inherent ordering. 
+```{r}
+data$target.type <- factor(data$target.type)
+cat("target.type is now:", class(data$target.type))
 ```
 
-
+*rt.subj*: This is the reaction on the PAS score response in seconds. This makes it a ratio variable, since it has a true zero and continuity.  
+```{r}
+data$rt.subj <- as.numeric(data$rt.subj)
+cat("rt.subj is now:", class(data$rt.subj))
+```
+*rt.obj*: This is the reaction on the target digit response in seconds. This makes it a ratio variable, since it has a true zero and continuity.  
+```{r}
+data$rt.obj <- as.numeric(data$rt.obj)
+cat("rt.obj is now:", class(data$rt.obj))
+```
+*obj.resp*: This is the key pressed in response to the target, being either e for even or o for odd. This makes it a nominal variable represented as a `factor` in R.
+```{r}
+data$obj.resp <- factor(data$obj.resp)
+cat("obj.resp is now:", class(data$obj.resp))
+```
+*subject*: This is the subject number, making it nominal, because it has no inherent order and has no true zero. 
+```{r}
+data$subject <- factor(data$subject)
+cat("subject is now:", class(data$subject))
+```
+*correct*: This is if the subject answered correct on their trial or not. This makes it logical because it holds either true or false. 
+```{r}
+data$correct <- as.logical(data$correct)
+cat("correct is now:", class(data$correct))
+```
 
 ## Exercise B - Fit multilevel models for binomial data
 
 We **only** look at the *experiment* trials (*trial.type*)
 
+**Answer:** 
+We can make sure of this by filtering for only the experimental trials.
+```{r}
+exp_data <- data |> filter(trial.type == "experiment") 
+```
+
+
 1)  Fit a multilevel model that models *correct* as dependent on *task* with a unique intercept for each *subject*
-    i.  does *task* explain performance?\
+**Answer:** 
+We can do this using the `glmer()` function from the lme4 library, making sure to model as binomial, since our data is binomial.
+```{r}
+model.task <- glmer(
+  correct ~ task + (1|subject),
+  data = exp_data,
+  family = "binomial")
+```
+
+
+i.  does *task* explain performance?\
+
+**Answer:** 
+We can do this by looking at the coefficients of the model.
+```{r}
+coef(summary(model.task))
+
+#Creating a null model that we can compare the model.task to
+model.null <- glmer(correct ~ 1 + (1|subject),
+                    data = exp_data,
+                    family = binomial)
+print("Comparison between models")
+print(anova(model.null, model.task))
+```
+We can from these coefficients see that *task* does indeed explain performance to a certain degree. We can see that as the task includes more numbers, the amount of correct responses decreases, and with less numbers as target it increases. We can see that the singles coefficient is statistically significant and quadruplet isn't, which suggests that task does partly explain performance to some degree. From the anova comparison we see a high $\chi^2$ for the task model compared to a model with without modelling task, which suggests that task does not make the model explain performance much better.
     
 --------------------------------------------------- *Iva* ---------------------------------------------------
     
