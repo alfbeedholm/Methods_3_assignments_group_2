@@ -113,7 +113,7 @@ likelihood_1
 
 Adding *pas* has improved the model by a lot, as the AIC dropped from 13636 to 12258.The likelihood ratio test, $\chi^2(1) = 1380.10, p < .001$ confirms it. The effect of *task*, which was initially significant for singles, became non-significant after adding *pas*. Specifically, the coefficient for the singles condition shrank from a significant *b* = 0.166 to a non-significant *b* = 0.035. This suggests that task and *pas* share explanatory variance, and *pas* is the dominant predictor of accuracy in this experiment.
 
-ii. now fit a multilevel model that models *correct* as dependent on *pas* with a unique intercept for each *subject*
+iii. now fit a multilevel model that models *correct* as dependent on *pas* with a unique intercept for each *subject*
 
 ```{r}
 
@@ -125,7 +125,7 @@ model.p <- glmer(
 ```
 
 
-iii. finally, fit a model that models the interaction between *task* and *pas* and their main effects, still with a unique intercept for each *subject*\
+iv. finally, fit a model that models the interaction between *task* and *pas* and their main effects, still with a unique intercept for each *subject*\
 
 ```{r}
 
@@ -138,7 +138,7 @@ model.tp.inter <- glmer(
 ```
 
 
-iv. describe in your own words which model is the best in explaining the variance in accuracy, and based on your chosen model - write a short summary on what this says about accuracy as dependent on *pas* and *task*. You should include at least one informative plot that shows the estimated probability of being correct for each of the levels of *task* and *pas* (and their interaction if you included that in your model).
+v. describe in your own words which model is the best in explaining the variance in accuracy, and based on your chosen model - write a short summary on what this says about accuracy as dependent on *pas* and *task*. You should include at least one informative plot that shows the estimated probability of being correct for each of the levels of *task* and *pas* (and their interaction if you included that in your model).
 
 ```{r}
 model.null <- glmer(
@@ -179,7 +179,7 @@ preds %>%
 
 ```
 
-Answer to iv.
+Answer to v.
 
 The best model for explaining variance in accuracy was the *pas*-only model (correct ~ pas + (1 | subject)). The interaction between *task* and *pas* was not significant, *p* = .127, nor did adding *task* to the *pas* model improve the fit (AIC = 12258.23 vs. 12254.67), *p* = .804. The *pas* coefficient was positive and highly significant *b* = 0.95, *p* < .001, which indicates that higher PAS scores predict accuracy.
 
