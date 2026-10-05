@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r, include = FALSE}
-pacman::p_load(tidyverse, readbulk, patchwork, lmerTest)
+pacman::p_load(tidyverse, readbulk, patchwork, lmerTest, ggplot2, ggeffects, dplyr)
 ```
 
 REMEMBER: In your portfolio, make sure to include code that can reproduce the answers requested in the exercises below (**MAKE A KNITTED VERSION**). If it does not KNIT, it cannot be part of your portfolio
@@ -40,6 +40,8 @@ data <- read_bulk(
 
 2)  Describe the data and construct extra variables from the existing variables
 
+<!-- -->
+
 i.  add a variable to the data frame and call it *correct* (have it be a *logical* variable). Assign a 1 to each row where the subject indicated the correct answer and a 0 to each row where the subject indicated the incorrect answer (**Hint:** the variable *obj.resp* indicates whether the subject answered "even", *e* or "odd", *o*, and the variable *target_type* indicates what was actually presented.
 
 ```{r}
@@ -53,15 +55,136 @@ ii. describe what the following variables in the data frame contain, *trial.type
 
 We **only** look at the *experiment* trials (*trial.type*)
 
+```{r}
+
+unique(data$trial.type)
+
+exp_data <- data %>%
+  filter(trial.type == "experiment")
+
+exp_data$pas <- factor(exp_data$pas)
+```
+
+
 1)  Fit a multilevel model that models *correct* as dependent on *task* with a unique intercept for each *subject*
-    i.  does *task* explain performance?\
-    
+
+```{r}
+model.task <- glmer(
+  correct ~ task + (1 | subject),
+  data = exp_data,
+  family = "binomial"
+)
+
+model.null <- glmer(
+  correct ~ 1 + (1 | subject),
+  data = exp_data,
+  family = "binomial" 
+)
+  
+ anova_0 <- anova(model.task, model.null)
+ 
+ anova_0
+  
+```
+
+  i.  does *task* explain performance?\
+
+  
+
 --------------------------------------------------- *Iva* ---------------------------------------------------
+
+ii. add *pas* as a main effect on top of *task* - what are the consequences of that?
+
+```{r}
+model.tp <- glmer(
+  correct ~ task + pas + (1 | subject),
+  data = exp_data,
+  family = "binomial"
+)
+```
+
+```{r}
+# Comparing the task and task + PAS models
+likelihood_1 <- anova(model.task, model.tp)
+
+likelihood_1
+
+```
+
+Adding *pas* has improved the model by a lot, as the AIC dropped from 13636 to 12258.The likelihood ratio test, $\chi^2(1) = 1380.10, p < .001$ confirms it. The effect of *task*, which was initially significant for singles, became non-significant after adding *pas*. Specifically, the coefficient for the singles condition shrank from a significant *b* = 0.166 to a non-significant *b* = 0.035. This suggests that task and *pas* share explanatory variance, and *pas* is the dominant predictor of accuracy in this experiment.
+
+ii. now fit a multilevel model that models *correct* as dependent on *pas* with a unique intercept for each *subject*
+
+```{r}
+
+model.p <- glmer(
+  correct ~ pas + (1 | subject),
+  data = exp_data,
+  family = "binomial"
+)
+```
+
+
+iii. finally, fit a model that models the interaction between *task* and *pas* and their main effects, still with a unique intercept for each *subject*\
+
+```{r}
+
+model.tp.inter <- glmer(
+  correct ~ task * pas + (1 | subject),
+  data = exp_data,
+  family = "binomial"
+)
+
+```
+
+
+iv. describe in your own words which model is the best in explaining the variance in accuracy, and based on your chosen model - write a short summary on what this says about accuracy as dependent on *pas* and *task*. You should include at least one informative plot that shows the estimated probability of being correct for each of the levels of *task* and *pas* (and their interaction if you included that in your model).
+
+```{r}
+model.null <- glmer(
+  correct ~ 1 + (1 | subject),
+  data = exp_data,
+  family = "binomial"
+)
+# Comparing all models (including the null model for reference purposes)
+likelihood_all <- anova(model.null, model.task, model.p, model.tp, model.tp.inter)
+
+likelihood_all
+```
+
+
+```{r}
+
+preds <- ggpredict(model.tp.inter, terms = c("pas", "task"))
+
+preds %>%
+  ggplot(aes(x = x, y = predicted, fill = group)) +
+    geom_col(position = "dodge",width = 0.6, color = "black", alpha = 0.7) +
+    scale_fill_manual(name = "Task",values = c("#90F1EF", "#ffd6e0", "#ffef9f")) +
+  
+  geom_errorbar(
+    aes(ymin = conf.low, ymax = conf.high),
+    position = position_dodge(width = 0.6),
+    width = 0.2) +
     
-  ii. add *pas* as a main effect on top of *task* - what are the consequences of that?\
-  iii. now fit a multilevel model that models *correct* as dependent on *pas* with a unique intercept for each *subject*
-  iv. finally, fit a model that models the interaction between *task* and *pas* and their main effects, still with a unique intercept for each *subject*\
-  v.  describe in your own words which model is the best in explaining the variance in accuracy, and based on your chosen model - write a short summary on what this says about accuracy as dependent on *pas* and *task*. You should include at least one informative plot that shows the estimated probability of being correct for each of the levels of *task* and *pas* (and their interaction if you included that in your model).
+  labs(
+    title = "Relationship between accuracy and PAS",
+    x = "PAS",
+    y = "Probability of correct response") +
+    
+    theme_light() +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold")) +
+    coord_cartesian(ylim = c(0, 1))
+
+```
+
+Answer to iv.
+
+The best model for explaining variance in accuracy was the *pas*-only model (correct ~ pas + (1 | subject)). The interaction between *task* and *pas* was not significant, *p* = .127, nor did adding *task* to the *pas* model improve the fit (AIC = 12258.23 vs. 12254.67), *p* = .804. The *pas* coefficient was positive and highly significant *b* = 0.95, *p* < .001, which indicates that higher PAS scores predict accuracy.
+
+Therefore, accuracy depends primarily on PAS, while task type does not significantly explain accuracy once PAS is accounted for. We can visually confirm this pattern in the figure above, which displays the estimated probability of a correct response for each level of PAS and task based on the additive model. The figure shows a steep, positive relationship between PAS and accuracy, while the bars for the three task conditions (pairs, quadruplet, singles) overlap almost entirely within each PAS level. This supports the conclusion that task type does not meaningfully influence accuracy.
+
 
 --------------------------------------------------- *Florin* ---------------------------------------------------
 
@@ -83,9 +206,9 @@ data.count <- data.frame(count = numeric(),
     i.  which family should be used?\
     ii. why is a slope for *pas* not really being modelled, and what are we modelling instead?\
     iii. if you get a convergence error, try another algorithm (the default is the *Nelder_Mead*) - try (*bobyqa*) for which the `dfoptim` package is needed. In `glmer`, you can add the following for the `control` argument: `glmerControl(optimizer="bobyqa")` (if you are interested, also have a look at the function `allFit`)
-    
+
 --------------------------------------------------- *Dori* ---------------------------------------------------
-    
-  iv. when you have a converging fit - fit a model with only the main effects of *pas* and *task*. Compare this with the model that also includes the interaction
-  v.  indicate which of the two models, you would choose and why\
-  vi. based on your chosen model - write a short summary on what this says about the distribution of ratings as dependent on *pas* and *task* and their interaction. You should include at least one informative plot that shows the estimated rate of events for each of the levels of *task* and *pas* (and their interaction if you included that in your model)
+
+iv. when you have a converging fit - fit a model with only the main effects of *pas* and *task*. Compare this with the model that also includes the interaction
+v.  indicate which of the two models, you would choose and why\
+vi. based on your chosen model - write a short summary on what this says about the distribution of ratings as dependent on *pas* and *task* and their interaction. You should include at least one informative plot that shows the estimated rate of events for each of the levels of *task* and *pas* (and their interaction if you included that in your model)
